@@ -4,6 +4,8 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -14,7 +16,7 @@ import java.util.Map;
 
 
 public class GameHandler extends Thread{
-
+    private static Logger logger = LoggerFactory.getLogger(GameHandler.class);
     private Socket currentSocket;
     private String userName;
     private DataInputStream dis;
@@ -28,7 +30,7 @@ public class GameHandler extends Thread{
     // Json object has two keys 'gameId' and 'opponentName'
     private static final HashMap<String, JSONObject> usersIngame = new HashMap<>();
     private static final HashMap<String, GameHandler> nameSocketMap = new HashMap<>();
-
+    private volatile boolean isInterrupted = false;
     public GameHandler(Socket cs)  {
         try {
             this.currentSocket = cs;
@@ -80,7 +82,7 @@ public class GameHandler extends Thread{
 
     @Override
     public void run(){
-        while(true) {
+        while(!isInterrupted) {
             String str= null;
             try {
                 str = dis.readLine();
@@ -91,9 +93,18 @@ public class GameHandler extends Thread{
                 closeConnection();
                 break;
             }
+            finally {
+                logger.info("Game Handler thread {} is shutting down",this.getId());
+            }
         }
     }
-
+    // note that we are not calling this method interrupt since this class is implements Thread which has its own interrupt method
+    // That is why I recommend against extending Thread classes or any other classes in general unless you absolutely must
+    public void interruptCustom()
+    {
+        logger.info("Game Handler thread {} received the interrupt command",this.getId());
+        this.isInterrupted=true;
+    }
     private void broadCast(String msg) {
         /*for (GameHandler gameHandler : clientsList) {
             gameHandler.ps.println(msg);
