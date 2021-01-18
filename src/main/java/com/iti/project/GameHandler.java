@@ -4,6 +4,8 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -16,21 +18,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class GameHandler {
 
-    private Thread listenToClientThread;
-    private Socket currentSocket;
-    private String userName;
-    private DataInputStream dis;
-    private PrintStream ps;
-
-    // We use atomic boolean instead of regular boolean to be able to change
-    // its value in different threads (to close threads gracefully )
-    private final AtomicBoolean running = new AtomicBoolean(false);
-
     private static final HashMap<Integer, Game> gameMap = new HashMap<>();
     // contains the user and and json object containing the gameId as well as the opponent name
     // Json object has two keys 'gameId' and 'opponentName'
     private static final HashMap<String, JSONObject> usersInGame = new HashMap<>();
     private static final HashMap<String, GameHandler> nameSocketMap = new HashMap<>();
+
+    private static Logger logger = LoggerFactory.getLogger(GameHandler.class);
+
+    // We use atomic boolean instead of regular boolean to be able to change
+    // its value in different threads safely (to close threads gracefully)
+    private volatile AtomicBoolean running = new AtomicBoolean(false);
+
+    private Thread listenToClientThread;
+    private Socket currentSocket;
+    private String userName;
+    private DataInputStream dis;
+    private PrintStream ps;
 
     public GameHandler(Socket cs)  {
         try {
@@ -42,7 +46,6 @@ public class GameHandler {
                 this.listenToClient();
             });
             this.listenToClientThread.start();
-            //this.listenToClientThread.interrupt();
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -50,46 +53,31 @@ public class GameHandler {
         }
     }
 
-    public boolean equals(GameHandler other){
-        return this.currentSocket.equals(other.currentSocket);
-    }
-
+    /* Used to close connection with the client */
     private void closeConnection(){
         try {
             this.currentSocket.close();
             this.dis.close();
-        } catch (IOException ioException) {
-            ioException.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         this.ps.close();
-        //System.out.println("Closed Connection user name: " + this.userName);
-        //System.out.println("Connection count before closeing coonection: " + nameSocketMap.size());
-        //clientsList.remove(this);
-        //GameHandler removedClient = null;
+        logger.info("Closed Connection user name: " + this.userName);
+        logger.info("Connection count before closing connection: " + nameSocketMap.size());
         if(this.userName != null){
-            //removedClient = nameSocketMap.remove(this.userName);
             nameSocketMap.remove(this.userName);
         }
-        //System.out.println("Connection count after closeing conection: " + nameSocketMap.size());
-        handleGameTermination();
-        System.out.println("Closing socket");
+        logger.info("Connection count after closing connection: " + nameSocketMap.size());
+        handleClientLeaving();
     }
 
-    /*private String getKey(GameHandler value){
-        String key = null;
-        for (Map.Entry<String,GameHandler> entry : nameSocketMap.entrySet()){
-            if(entry.getValue().equals(value)){
-                key = entry.getKey();
-                break;
-            }
-        }
-        return key;
-    }*/
-
+    /* Used to stop the listening thread when something goes wrong or we close the server */
     private void stopThread(){
         this.running.set(false);
     }
 
+    /* This method is the ears of the sever, it's a method running in its own
+    *  thread, all it does is listed to client requests */
     private void listenToClient(){
         this.running.set(true);
         while(this.running.get()) {
@@ -102,22 +90,19 @@ public class GameHandler {
                 //e.printStackTrace();
                 stopThread();
                 closeConnection();
-                break;
             }
         }
-
-        System.out.println("Thread of " + this.userName + " is stopping!");
     }
 
+    /* Used to send a message to all connected clients */
     private void broadCast(String msg) {
-        /*for (GameHandler gameHandler : clientsList) {
-            gameHandler.ps.println(msg);
-        }*/
         for (Map.Entry<String,GameHandler> entry : nameSocketMap.entrySet()){
             entry.getValue().ps.println(msg);
         }
     }
 
+    /* This method is heart of the program, it takes to client requests (reply)
+    * and reply according to the 'type' received is the request json object */
     private void handleClientReply(String reply){
         JSONObject replyJson = parseStringToJsonObject(reply);
         String type = replyJson.get("type").toString();
@@ -125,7 +110,6 @@ public class GameHandler {
             int gameId = Integer.parseInt(replyJson.get("gameId").toString());
             int index = Integer.parseInt(replyJson.get("index").toString());
             int symbol = Integer.parseInt(replyJson.get("symbol").toString());
-            //gameMap.get(gameId).nextTurn(position);
             handleNextTurn(gameId, index, symbol);
         }else if(type.equals("login")){
             String name = replyJson.get("userName").toString();
@@ -143,7 +127,6 @@ public class GameHandler {
             if(nameSocketMap.get(possibleOpponentName) == null){  // opponent is not online
                 handleGameRejection(possibleOpponentName + " is currently not online!", null);
             }else if(usersInGame.get(possibleOpponentName) == null){  // opponent is free to play
-                //handleGameStart(possibleOpponentName);
                 askOpponentForGame(possibleOpponentName);
             }else{    // opponent is busy (in other game)
                 handleGameRejection("Opponents is in another game!", null);
@@ -161,6 +144,9 @@ public class GameHandler {
         }
     }
 
+    /* Handles next turn in the multi player game,
+    * index is the place on the board that was clicked (0->8)
+    * symbol is either 1 (for 'X') or -1 (for 'O') */
     private void handleNextTurn(int gameId, int index, int symbol){
         Game game = gameMap.get(gameId);
         GameHandler possibleWinner = nameSocketMap.get(game.nextTurn(index, symbol));
@@ -204,6 +190,7 @@ public class GameHandler {
         }
     }
 
+    /* Used to send all users to the client when the client logs in */
     private void handleSendAllUsers(){
         JSONObject sendToClient = this.createJsonObject();
         JSONArray allUsers = new JSONArray();
@@ -220,7 +207,7 @@ public class GameHandler {
         this.ps.println(sendToClient.toJSONString());
     }
 
-    // Used to notify other clients when a new client connects
+    /* Used to notify other clients when a new client connects */
     private void signalOnlineUser(String loggedInUser){
         JSONObject sendToClient = this.createJsonObject();
         sendToClient.put("type", "newLoggedInUser");
@@ -228,7 +215,7 @@ public class GameHandler {
         broadCast(sendToClient.toJSONString());
     }
 
-    // Used to notify other clients when a client leaves
+    /* Used to notify other clients when a client leaves */
     private void signalUserLogout(String loggedOutUser){
         JSONObject sendToClient = this.createJsonObject();
         sendToClient.put("type", "loggedOutUser");
@@ -236,6 +223,8 @@ public class GameHandler {
         broadCast(sendToClient.toJSONString());
     }
 
+    /* Used to notify the client attempting to login if the login was successful or not,
+       also it signals the other clients the a new user has joined */
     private void handleLogin(boolean success, String userName){
         JSONObject object = createJsonObject();
         object.put("type", "loginResult");
@@ -243,6 +232,7 @@ public class GameHandler {
         if(success){
             object.put("userName", userName);
             this.userName = userName;
+            logger.info("{} has logged in", userName);
         }
         this.ps.println(object.toJSONString());
         // Notifying other clients a new player has joined
@@ -251,11 +241,10 @@ public class GameHandler {
         }
     }
 
-    // Connections are already closed and user is removed from nameSocketMap when this methods is called,
-    // All we handle is check if the client that left is in game or not
-    // and if he is in game, we terminate the game
-    // and the remove the game from gamesList and remove the client from usersInGame map
-    private void handleGameTermination(){
+    /* Connections are already closed and user is removed from nameSocketMap when this methods is called,
+    All we handle is check if the client that left is in game or not
+    and if he is in game, we terminate the game and notify the other player */
+    private void handleClientLeaving(){
         JSONObject gameInfo = usersInGame.get(this.userName);
         if(gameInfo != null){  // That means that the client left was in a game
             int gameId = Integer.parseInt(gameInfo.get("gameId").toString());
@@ -265,20 +254,23 @@ public class GameHandler {
             JSONObject sendToOtherClient = createJsonObject();
             sendToOtherClient.put("type", "gameTerminated");
             nameSocketMap.get(opponentName).ps.println(sendToOtherClient.toJSONString());
-            usersInGame.remove(this.userName);
-            usersInGame.remove(opponentName);
-            gameMap.remove(gameId);
-            // Here, I am notifying other clients that client has left (to update the listview in the frontend)
+            removeGame(gameMap.get(gameId));
         }
+        // Here, I am notifying other clients that client has left (to update the listview in the frontend)
         signalUserLogout(this.userName);
     }
 
+    /* Used to remove a game when it's finished */
     private void removeGame(Game game){
+        logger.info("Removed game with id {}", game.getGameId());
         gameMap.remove(game.getGameId());
         usersInGame.remove(game.getPlayerOne());
         usersInGame.remove(game.getPlayerTwo());
     }
 
+    /* Handles game rejection, note if opponent is null, that means game was rejected
+    * by the server because the user was either busy or offline. If opponent name is
+    * provided, that means that this opponent rejected the game  */
     private void handleGameRejection(String error, String opponent){
         if(opponent != null){ // Means game was rejected because user declined
             // Note that the opponent String in the method argument is the player who requested the game
@@ -296,6 +288,7 @@ public class GameHandler {
 
     }
 
+    /* Used to notify the client that some one wants to play with him*/
     private void askOpponentForGame(String opponentName) {
         GameHandler opponentClient = nameSocketMap.get(opponentName);
         JSONObject sendToOpponent = createJsonObject();
@@ -304,11 +297,13 @@ public class GameHandler {
         opponentClient.ps.println(sendToOpponent.toJSONString());
     }
 
+    /* Handles creation of the game between two players and stores the necessary information
+    * Note that here 'this' refers to the player who ASKED for the game,
+    * while 'opponent' is the person who accepted the game */
     private void handleGameStart(String opponent){
         // Creating game info
         int gameId = gameMap.size();  // gameId starts at zero
-        GameHandler playerOne = this;  // the user who was asked to start a game
-        GameHandler playerTwo = nameSocketMap.get(opponent);   // the user who requested the game
+
         // Storing game info
         JSONObject playerOneGameInfo = createJsonObject();
         playerOneGameInfo.put("gameId", gameId);
@@ -318,9 +313,12 @@ public class GameHandler {
         playerTwoGameInfo.put("opponentName", this.userName);
         usersInGame.put(this.userName, playerOneGameInfo);
         usersInGame.put(opponent, playerTwoGameInfo);
+
         // Starting game and adding it to games list
         Game newGame = new Game(gameId, this.userName, opponent);
+        logger.info("Started game with id {}", gameId);
         gameMap.put(gameId ,newGame);
+
         // Sending to both players game start info
         JSONObject sendToPlayerOne = this.createJsonObject();
         JSONObject sendToPlayerTwo = this.createJsonObject();
@@ -337,6 +335,10 @@ public class GameHandler {
 
         nameSocketMap.get(newGame.getPlayerOne()).ps.println(sendToPlayerOne.toJSONString());
         nameSocketMap.get(newGame.getPlayerTwo()).ps.println(sendToPlayerTwo.toJSONString());
+    }
+
+    public boolean equals(GameHandler other){
+        return this.currentSocket.equals(other.currentSocket);
     }
 
     private JSONObject createJsonObject(){

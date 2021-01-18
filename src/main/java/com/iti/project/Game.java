@@ -6,20 +6,19 @@ public class Game {
     private final int gameId;
     private final String playerOne;
     private final String playerTwo;
+    private String winner;
+    private String loser;
     private boolean playerOneTurn;  // At the start of the game, 'playerOne' always starts
     private boolean hasSomeOneWon;
     private int gameTurns;   // Max is 9, if reached and no one has won, then it's a tie
-    private String winner;
-    private String loser;
 
-    private final int[] buttons;
-
+    private final int[] board;  // game board
 
     public Game(int gameId, String playerOne, String playerTwo){
         this.gameId = gameId;
         this.playerOne = playerOne;
         this.playerTwo = playerTwo;
-        this.buttons = new int[]{0,0,0,0,0,0,0,0,0};  // button id is array index, 'X' or 'O' is the array element
+        this.board = new int[]{0,0,0,0,0,0,0,0,0};  // button id is array index, 'X' or 'O' is the array element
         this.playerOneTurn = true;  // 'playerOne' is 'X', 'playerTwo' is 'O'
         this.hasSomeOneWon = false;
         this.gameTurns = 0;
@@ -70,7 +69,7 @@ public class Game {
     public String nextTurn(int index, int symbol){   // ex: [index, element] ex: [0->8, 1 or -1]
         this.playerOneTurn = !this.playerOneTurn;
         this.gameTurns++;
-        this.buttons[index] = symbol;
+        this.board[index] = symbol;
         return this.checkGameOver();
     }
 
@@ -101,34 +100,34 @@ public class Game {
     // Returns 0 if no one won, 1 if 'X' won and -1 if 'O' won
     private int checkWin(){
         // Checking horizontally
-        if(buttons[0] != 0 && (buttons[0] == buttons[1] && buttons[0] == buttons[2])){
+        if(board[0] != 0 && (board[0] == board[1] && board[0] == board[2])){
             this.hasSomeOneWon = true;
-            return buttons[0];
-        }else if(buttons[3] != 0 && (buttons[3] == buttons[4] && buttons[3] == buttons[5])){
+            return board[0];
+        }else if(board[3] != 0 && (board[3] == board[4] && board[3] == board[5])){
             this.hasSomeOneWon = true;
-            return buttons[3];
-        }else if(buttons[6] != 0 && (buttons[6] == buttons[7] && buttons[6] == buttons[8])){
+            return board[3];
+        }else if(board[6] != 0 && (board[6] == board[7] && board[6] == board[8])){
             this.hasSomeOneWon = true;
-            return buttons[6];
+            return board[6];
         }
         // Checking vertically
-        else if(buttons[0] != 0 && (buttons[0] == buttons[3] && buttons[0] == buttons[6])){
+        else if(board[0] != 0 && (board[0] == board[3] && board[0] == board[6])){
             this.hasSomeOneWon = true;
-            return buttons[0];
-        }else if(buttons[1] != 0 && (buttons[1] == buttons[4] && buttons[1] == buttons[7])){
+            return board[0];
+        }else if(board[1] != 0 && (board[1] == board[4] && board[1] == board[7])){
             this.hasSomeOneWon = true;
-            return buttons[1];
-        }else if(buttons[2] != 0 && (buttons[2] == buttons[5] && buttons[2] == buttons[8])){
+            return board[1];
+        }else if(board[2] != 0 && (board[2] == board[5] && board[2] == board[8])){
             this.hasSomeOneWon = true;
-            return buttons[2];
+            return board[2];
         }
         // Checking diagonally
-        else if(buttons[0] != 0 && (buttons[0] == buttons[4] && buttons[0] == buttons[8])){
+        else if(board[0] != 0 && (board[0] == board[4] && board[0] == board[8])){
             this.hasSomeOneWon = true;
-            return buttons[0];
-        }else if(buttons[2] != 0 && (buttons[2] == buttons[4] && buttons[2] == buttons[6])){
+            return board[0];
+        }else if(board[2] != 0 && (board[2] == board[4] && board[2] == board[6])){
             this.hasSomeOneWon = true;
-            return buttons[2];
+            return board[2];
         }
         return 0;
     }

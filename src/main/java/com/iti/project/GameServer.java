@@ -1,20 +1,25 @@
 package com.iti.project;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class GameServer {
 
     public static final int PORT = 5000;
 
+    private static Logger logger = LoggerFactory.getLogger(GameServer.class);
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     private Thread listeningToClientsThread;
-
-    private static final ArrayList<String> users = new ArrayList<>();
+    private final List<GameHandler> handlers = new ArrayList<>();
+    private static final List<String> users = new ArrayList<>();
 
     static {
         users.add("foo");
@@ -27,8 +32,8 @@ public class GameServer {
     public GameServer() {
         try {
             ServerSocket serverSocket = new ServerSocket(PORT);
-            System.out.println("Server Started");
-            System.out.println("Waiting for clients...");
+            logger.info("Server Started on PORT {}", PORT);
+            logger.info("Waiting for clients...");
 
             this.listeningToClientsThread = new Thread(()->{
                 this.running.set(true);
@@ -36,8 +41,9 @@ public class GameServer {
                     Socket s = null;
                     try {
                         s = serverSocket.accept();
-                        new GameHandler(s);
-                        System.out.println("Client accepted");
+                        GameHandler handler = new GameHandler(s);
+                        handlers.add(handler);
+                        logger.info("Client accepted");
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -51,7 +57,7 @@ public class GameServer {
         }
     }
 
-    public static ArrayList<String> getUsers(){
+    public static List<String> getUsers(){
         return users;
     }
 
