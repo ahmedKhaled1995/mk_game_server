@@ -19,7 +19,7 @@ public class GameServer {
 
     private Thread listeningToClientsThread;
     private final List<GameHandler> handlers = new ArrayList<>();
-    private static final List<String> users = new ArrayList<>();
+    /*private static final List<String> users = new ArrayList<>();
 
     static {
         users.add("foo");
@@ -27,7 +27,7 @@ public class GameServer {
         users.add("baz");
         users.add("dav");
         users.add("jak");
-    }
+    }*/
 
     public GameServer() {
         try {
@@ -57,9 +57,9 @@ public class GameServer {
         }
     }
 
-    public static List<String> getUsers(){
+    /*public static List<String> getUsers(){
         return users;
-    }
+    }*/
 
     private void stopServer(){
         this.running.set(false);

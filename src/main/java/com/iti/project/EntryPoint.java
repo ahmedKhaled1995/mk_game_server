@@ -13,7 +13,12 @@ public class EntryPoint {
         // To configure the logger
         BasicConfigurator.configure();
         new GameServer();
+        /*try {
+            String hashed = Password.getSaltedHash("foo");
+            boolean check = Password.check("foo", hashed);
+            System.out.println(check);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }*/
     }
-
-
 }
