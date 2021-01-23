@@ -1,5 +1,6 @@
 package com.iti.project;
 
+import org.json.simple.JSONObject;
 
 public class Game {
 
@@ -13,12 +14,14 @@ public class Game {
     private int gameTurns;   // Max is 9, if reached and no one has won, then it's a tie
 
     private final int[] board;  // game board
+    private final int[] orderOfPlay;
 
     public Game(int gameId, String playerOne, String playerTwo){
         this.gameId = gameId;
         this.playerOne = playerOne;
         this.playerTwo = playerTwo;
         this.board = new int[]{0,0,0,0,0,0,0,0,0};  // button id is array index, 'X' or 'O' is the array element
+        this.orderOfPlay = new int[]{0,0,0,0,0,0,0,0,0};
         this.playerOneTurn = true;  // 'playerOne' is 'X', 'playerTwo' is 'O'
         this.hasSomeOneWon = false;
         this.gameTurns = 0;
@@ -68,6 +71,7 @@ public class Game {
 
     public String nextTurn(int index, int symbol){   // ex: [index, element] ex: [0->8, 1 or -1]
         this.playerOneTurn = !this.playerOneTurn;
+        this.orderOfPlay[gameTurns] = index;
         this.gameTurns++;
         this.board[index] = symbol;
         return this.checkGameOver();
@@ -134,5 +138,32 @@ public class Game {
 
     private boolean checkTie(){
         return !this.hasSomeOneWon && this.gameTurns >= 9;
+    }
+
+   /* public void resetGame(){
+        this.gameId = gameId;
+        this.playerOne = playerOne;
+        this.playerTwo = playerTwo;
+        this.board = new int[]{0,0,0,0,0,0,0,0,0};  // button id is array index, 'X' or 'O' is the array element
+        this.orderOfPlay = new int[]{0,0,0,0,0,0,0,0,0};
+        this.playerOneTurn = true;  // 'playerOne' is 'X', 'playerTwo' is 'O'
+        this.hasSomeOneWon = false;
+        this.gameTurns = 0;
+        this.winner = null;
+        this.loser = null;
+    }*/
+
+    public JSONObject getGameBoard(){
+        JSONObject gameValues = new JSONObject();
+        gameValues.put(this.orderOfPlay[0], this.board[0]);
+        gameValues.put(this.orderOfPlay[1], this.board[1]);
+        gameValues.put(this.orderOfPlay[2], this.board[2]);
+        gameValues.put(this.orderOfPlay[3], this.board[3]);
+        gameValues.put(this.orderOfPlay[4], this.board[4]);
+        gameValues.put(this.orderOfPlay[5], this.board[5]);
+        gameValues.put(this.orderOfPlay[6], this.board[6]);
+        gameValues.put(this.orderOfPlay[7], this.board[7]);
+        gameValues.put(this.orderOfPlay[8], this.board[8]);
+        return gameValues;
     }
 }

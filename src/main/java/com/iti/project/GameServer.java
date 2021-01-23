@@ -19,22 +19,13 @@ public class GameServer {
 
     private Thread listeningToClientsThread;
     private final List<GameHandler> handlers = new ArrayList<>();
-    /*private static final List<String> users = new ArrayList<>();
-
-    static {
-        users.add("foo");
-        users.add("bar");
-        users.add("baz");
-        users.add("dav");
-        users.add("jak");
-    }*/
 
     public GameServer() {
         try {
             ServerSocket serverSocket = new ServerSocket(PORT);
             logger.info("Server Started on PORT {}", PORT);
             logger.info("Waiting for clients...");
-
+            // Running the thread that will accept clients
             this.listeningToClientsThread = new Thread(()->{
                 this.running.set(true);
                 while(this.running.get()) {
@@ -50,16 +41,11 @@ public class GameServer {
                 }
             });
             this.listeningToClientsThread.start();
-
         } catch (IOException e) {
             e.printStackTrace();
             System.exit(0);
         }
     }
-
-    /*public static List<String> getUsers(){
-        return users;
-    }*/
 
     private void stopServer(){
         this.running.set(false);
